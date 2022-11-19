@@ -5,89 +5,133 @@
 #include <random>
 #include <ranges>
 
-#undef main 
 
-const unsigned int screenWitdh = 1200;
-const unsigned int screenHeight = 720;
+#define SCREEN_WIDTH 1200
+#define SCREEN_HEIGHT 800
 
-unsigned int v_size = { };
 
-void bubbleSort() {
+SDL_Window* window = nullptr;
+SDL_Renderer* renderer = nullptr;
 
-}
+unsigned int v_size = 400;
+std::vector<int> v;
 
-void cocktailSort() {
+unsigned int rectangle_width = SCREEN_WIDTH / v_size;
 
-}
+bool is_finished = false;
 
-//red = i //blue = j
-void draw_state(std::vector<int>& v, SDL_Renderer* renderer, unsigned int red, unsigned int blue) {
-	unsigned int index = 0;
-	for (int i : v) {
-		if(index == red)
-			SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-		else if(index == blue)
-			SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-		else
-			SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-		SDL_RenderDrawLine(renderer, index, v_size, index, i);
-		index++;
-	}
-
-}
-
-int main() {
-
-	std::vector<int> v;
-	v_size = 720;
-
+void randVector() {
 	for (int i = 0; i < v_size; i++)
 		v.push_back(i);
 
-
 	auto rng = std::default_random_engine{};
 	std::shuffle(std::begin(v), std::end(v), rng);
+}
 
-	SDL_Window* window = nullptr;
-	SDL_Renderer* renderer = nullptr;
-	SDL_CreateWindowAndRenderer(1200, 720, 0, &window, &renderer);
-	SDL_RenderSetScale(renderer, 1, 1);
 
-	bool swapped = true;
-	int start = 0;
-	int end = v.size() - 1;
+bool init() {
+	bool success = true;
+	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+		std::cout << "Couldn't initialize SDL. SDL_Error: " << SDL_GetError();
+		success = false;
+	}
+	else {
+		if (!(SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1"))) {
+			std::cout << "Warning: Linear Texture Filtering not enabled.\n";
+		}
 
-	while (swapped) {
-		swapped = false;
-		for (int i = start; i < end; ++i) {
-			if (v[i] > v[i + 1]) {
-				std::swap(v[i], v[i + 1]);
-				swapped = true;
+		window = SDL_CreateWindow("Sorting Visualizer", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+		if (window == NULL) {
+			std::cout << "Couldn't create window. SDL_Error: " << SDL_GetError();
+			success = false;
+		}
+		else {
+			renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+			if (renderer == NULL) {
+				std::cout << "Couldn't create renderer. SDL_Error: " << SDL_GetError();
+				success = false;
 			}
 		}
-		if (!swapped)
-			break;
-		swapped = false;
-		--end;
-		for (int i = end - 1; i >= start; --i) {
-			if (v[i] > v[i + 1]) {
-				std::swap(v[i], v[i + 1]);
-				swapped = true;
+	}
+	return success;
+}
+void close()
+{
+	SDL_DestroyRenderer(renderer);
+	renderer = NULL;
+
+	SDL_DestroyWindow(window);
+	window = NULL;
+
+	SDL_Quit();
+}
+
+void draw(unsigned int y, unsigned int z) {
+	int x = { 0 };
+	int index = {};
+	for (int i = 0; i < v.size();  i++) {
+		SDL_Rect r = {index, SCREEN_HEIGHT - v[i], rectangle_width, v[i]};
+		if (x == y) 
+			SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+		else if (x == z) 
+			SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
+		else
+			SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+		SDL_RenderDrawRect(renderer, &r);
+		index+=rectangle_width;
+		x++;
+	}
+}
+void bubbleSort() {
+
+	for (int i = 0; i < v.size(); i++) {
+		for (int j = 0; j < v.size() - 1; j++) {
+			if (v[j] > v[j + 1]) {
+				std::swap(v[j], v[j + 1]);
 			}
 			SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 			SDL_RenderClear(renderer);
-
-			draw_state(v, renderer, i, i);
-			//show window
+			draw(i, j+1);
 			SDL_RenderPresent(renderer);
 		}
-		++start;
 	}
-	
-	SDL_Event e; bool quit = false; while (quit == false) { while (SDL_PollEvent(&e)) { if (e.type == SDL_QUIT) quit = true; } }
+	std::cout << "Sorted\n";
+}
 
-	for (int i : v)
-		std::cout << i << " ";
-	if (std::ranges::is_sorted(v))
-		std::cout << "sorted\n";
+
+int main(int argc, char* args[]) {
+	randVector();
+
+	if (!init())
+		std::cout << "Failed to initialize!\n";
+	else
+	{
+		bool quit = false;
+
+		SDL_Event e;
+
+		while (!quit) {
+			while (SDL_PollEvent(&e) != 0) {
+				if (e.type == SDL_QUIT)
+					quit = true;
+				else if (e.type == SDL_KEYDOWN) {
+					switch (e.key.keysym.sym) {
+					case SDLK_ESCAPE:
+						quit = true;
+						break;
+					
+					case SDLK_1:
+						is_finished = false;
+						bubbleSort();
+						is_finished = true;
+						break;
+					}
+				}
+			}
+
+		}
+	}
+	close();
+		
+	return 0;
 }
